@@ -12,7 +12,7 @@ for you to contact me.
 @Github: https://github.com/HengWang/
 */
 
-#include <my_global.h>
+//#include <my_global.h>
 #include <my_sys.h>
 #include <m_string.h>
 #include <m_ctype.h>
@@ -108,7 +108,7 @@ int init_field_head(sensitive_field_head** s_fields)
 {
   DBUG_ENTER("init_field_head");
   if(*s_fields)
-    uninit_field_head(*s_field);
+    uninit_field_head(*s_fields);
   *s_fields =  (sensitive_field_head*) my_malloc(sizeof(sensitive_field_head), MYF(MY_WME));
   if(!(*s_fields))
   {
