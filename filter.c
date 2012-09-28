@@ -109,6 +109,11 @@ my_bool is_field_exists(const sensitive_field_head* s_fields, const char* key)
 int init_field(sensitive_field** s_field, const char* key, const char* value)
 {
   DBUG_ENTER("init_field");
+  if (!key || !value)
+  {
+    DBUG_PRINT("error",("!!!error: The key or value is NULL!\n"));
+    DBUG_RETURN(-1);
+  }
   *s_field = (sensitive_field*) my_malloc(sizeof(sensitive_field), MYF(MY_WME));
   if(s_field==NULL)
   {
