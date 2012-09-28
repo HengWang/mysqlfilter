@@ -84,24 +84,21 @@ table
         :     TABLE  ID '{' field '}'
 	{
 		sensitive_table* s_table = NULL;
-		if(!s_tables){
-			s_tables = (sensitive_table_head*) my_malloc(sizeof(sensitive_table_head), MYF(MY_WME));
-		    if(!s_tables)
-		    {
-				fprintf(stderr, "malloc the sensitive table head failed when parsing at line number %d\n",	line_no);
-				$$ =  0;
-				return $$;		    
-		    }
-		    TAILQ_INIT(s_tables);
-	    }
 		if(init_table(&s_table, $2, $4)){
 			fprintf(stderr, "initialize the table failed when parsing at line number %d, the name of db: %s\n",	line_no, $2);
 			$$ = (sensitive_table_head*) NULL;
 			return $$;
 		}		
+		if(!s_tables && init_table_head(&s_tables))
+		{
+			uninit_table(s_table);
+			fprintf(stderr, "malloc the sensitive table head failed when parsing at line number %d\n",	line_no);
+			$$ =  0;
+			return $$;		    
+		}
 		if(add_table(s_tables, s_table)){
 			uninit_table(s_table);
-			clear_tables(s_tables);
+			uninit_table_head(s_tables);
 			fprintf(stderr, "add table failed when parsing at line number %d, the name of db: %s\n",	line_no, $2);
 			$$ =  (sensitive_table_head*) NULL;
 			return $$;
@@ -113,13 +110,14 @@ table
 		sensitive_table* s_table = NULL;
 		sensitive_table_head* s_tables = $1;
 		if(init_table(&s_table, $3, $5)){
+			uninit_table_head(s_tables);
 			fprintf(stderr, "initialize the table failed when parsing at line number %d, the name of db: %s\n",	line_no, $3);
 			$$ =  (sensitive_table_head*) NULL;
 			return $$;
 		}
 		if(add_table(s_tables, s_table)){
 			uninit_table(s_table);
-			clear_tables(s_tables);
+			uninit_table_head(s_tables);
 			fprintf(stderr, "add table failed when parsing at line number %d, the name of db: %s\n",	line_no, $3);
 			$$ =  (sensitive_table_head*) NULL;
 			return $$;
@@ -139,17 +137,16 @@ field
 			$$ =  (sensitive_field_head*) NULL;
 			return $$;
 		}
-		if(!(s_fields = (sensitive_field_head*) my_malloc(sizeof(sensitive_field_head), MYF(MY_WME)))){
+		if(!s_fields && init_field_head(&s_fields)){
 			uninit_field(s_field);
 			fprintf(stderr, "malloc sensitive field head failed when parsing at line number %d\n",	line_no);
 			$$ =  (sensitive_field_head*) NULL;
 			return $$;
 		}
-		TAILQ_INIT(s_fields);
 		if(add_field(s_fields,s_field))
 		{
 			uninit_field(s_field);
-			my_free(s_fields);
+			uninit_field_head(s_fields);
 			fprintf(stderr, "add the field failed when parsing at line number %d, the field key: %s value: %s\n",
 				line_no, $1, $3);
 			$$ = (sensitive_field_head*) NULL;
@@ -163,6 +160,7 @@ field
 		sensitive_field_head* s_fields = NULL;
 		s_fields = $1;
 		if (init_field(&s_field, $2, $4)) {
+			uninit_field_head(s_fields);
 			fprintf(stderr, "initialize the field failed when parsing at line number %d, the key: %s value: %s\n",
 				line_no, $2, $4);
 			$$ = (sensitive_field_head*) NULL;
@@ -171,6 +169,7 @@ field
 		if(add_field(s_fields,s_field))
 		{
 			uninit_field(s_field);
+			uninit_field_head(s_fields);
 			fprintf(stderr, "add the field failed when parsing at line number %d, the field key: %s value: %s\n",
 				line_no, $2, $4);
 			$$ = (sensitive_field_head*) NULL;

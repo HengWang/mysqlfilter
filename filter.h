@@ -239,6 +239,28 @@ FALSE         failed.
 my_bool is_field_exists(const sensitive_field_head* s_fields, const char* key);
 
 /*
+  Initialize the sensitive field head. 
+
+  SYNOPSIS
+    init_field_head()
+    s_fields         The object of sensitive field head.
+
+  RETURN VALUES
+    0                  success;
+    -1                 failed.
+*/
+int init_field_head(sensitive_field_head** s_fields);
+
+/*
+  Uninitialize the sensitive field head. 
+
+  SYNOPSIS
+    uninit_field_head()
+    s_fields         The object of sensitive field head.
+*/
+void uninit_field_head(sensitive_field_head* s_fields);
+
+/*
   Initialize the sensitive field. 
 
   SYNOPSIS
@@ -329,6 +351,32 @@ int get_table(const sensitive_table_head* s_tables, sensitive_table** s_table, c
 my_bool is_table_exists(const sensitive_table_head* s_tables, const char* tb);
 
 /*
+  Initialize the sensitive table head. 
+
+  SYNOPSIS
+    init_field_head()
+    s_tables         The object of sensitive table head.
+
+  RETURN VALUES
+    0                  success;
+    -1                 failed.
+*/
+int init_table_head(sensitive_table_head** s_tables);
+
+/*
+  Uninitialize the sensitive table head. 
+
+  SYNOPSIS
+    uninit_field_head()
+    s_tables         The object of sensitive table head.
+
+  RETURN VALUES
+    0                  success;
+    -1                 failed.
+*/
+void uninit_table_head(sensitive_table_head* s_tables);
+
+/*
   Initialize the sensitive table based on given table name. 
 
   SYNOPSIS
@@ -417,6 +465,32 @@ int get_database(const sensitive_db_head* s_dbs, sensitive_db** s_db, const char
     FALSE           failed.
 */
 my_bool is_db_exists(const sensitive_db_head* s_dbs, const char* db);
+
+/*
+  Initialize the sensitive database head. 
+
+  SYNOPSIS
+    init_db_head()
+    s_dbs         The object of sensitive database head.
+
+  RETURN VALUES
+    0                  success;
+    -1                 failed.
+*/
+int init_db_head(sensitive_db_head** s_dbs);
+
+/*
+  Uninitialize the sensitive database head. 
+
+  SYNOPSIS
+    uninit_db_head()
+    s_dbs         The object of sensitive database head.
+
+  RETURN VALUES
+    0                  success;
+    -1                 failed.
+*/
+void uninit_db_head(sensitive_db_head* s_dbs);
 
 /*
   Initialize the sensitive database of given database name. 

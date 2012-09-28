@@ -442,7 +442,7 @@ static const yytype_int8 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,    55,    55,    60,    64,    84,   111,   132,   160
+       0,    55,    55,    60,    64,    84,   108,   130,   157
 };
 #endif
 
@@ -1393,24 +1393,21 @@ yyreduce:
 #line 85 "filter_parser.y"
     {
 		sensitive_table* s_table = NULL;
-		if(!s_tables){
-			s_tables = (sensitive_table_head*) my_malloc(sizeof(sensitive_table_head), MYF(MY_WME));
-		    if(!s_tables)
-		    {
-				fprintf(stderr, "malloc the sensitive table head failed when parsing at line number %d\n",	line_no);
-				(yyval.table_head) =  0;
-				return (yyval.table_head);		    
-		    }
-		    TAILQ_INIT(s_tables);
-	    }
 		if(init_table(&s_table, (yyvsp[(2) - (5)].name), (yyvsp[(4) - (5)].field_head))){
 			fprintf(stderr, "initialize the table failed when parsing at line number %d, the name of db: %s\n",	line_no, (yyvsp[(2) - (5)].name));
 			(yyval.table_head) = (sensitive_table_head*) NULL;
 			return (yyval.table_head);
 		}		
+		if(!s_tables && init_table_head(&s_tables))
+		{
+			uninit_table(s_table);
+			fprintf(stderr, "malloc the sensitive table head failed when parsing at line number %d\n",	line_no);
+			(yyval.table_head) =  0;
+			return (yyval.table_head);		    
+		}
 		if(add_table(s_tables, s_table)){
 			uninit_table(s_table);
-			clear_tables(s_tables);
+			uninit_table_head(s_tables);
 			fprintf(stderr, "add table failed when parsing at line number %d, the name of db: %s\n",	line_no, (yyvsp[(2) - (5)].name));
 			(yyval.table_head) =  (sensitive_table_head*) NULL;
 			return (yyval.table_head);
@@ -1422,18 +1419,19 @@ yyreduce:
   case 6:
 
 /* Line 1455 of yacc.c  */
-#line 112 "filter_parser.y"
+#line 109 "filter_parser.y"
     {
 		sensitive_table* s_table = NULL;
 		sensitive_table_head* s_tables = (yyvsp[(1) - (6)].table_head);
 		if(init_table(&s_table, (yyvsp[(3) - (6)].name), (yyvsp[(5) - (6)].field_head))){
+			uninit_table_head(s_tables);
 			fprintf(stderr, "initialize the table failed when parsing at line number %d, the name of db: %s\n",	line_no, (yyvsp[(3) - (6)].name));
 			(yyval.table_head) =  (sensitive_table_head*) NULL;
 			return (yyval.table_head);
 		}
 		if(add_table(s_tables, s_table)){
 			uninit_table(s_table);
-			clear_tables(s_tables);
+			uninit_table_head(s_tables);
 			fprintf(stderr, "add table failed when parsing at line number %d, the name of db: %s\n",	line_no, (yyvsp[(3) - (6)].name));
 			(yyval.table_head) =  (sensitive_table_head*) NULL;
 			return (yyval.table_head);
@@ -1445,7 +1443,7 @@ yyreduce:
   case 7:
 
 /* Line 1455 of yacc.c  */
-#line 133 "filter_parser.y"
+#line 131 "filter_parser.y"
     {
 		sensitive_field* s_field = NULL;
 		sensitive_field_head* s_fields = NULL;
@@ -1455,17 +1453,16 @@ yyreduce:
 			(yyval.field_head) =  (sensitive_field_head*) NULL;
 			return (yyval.field_head);
 		}
-		if(!(s_fields = (sensitive_field_head*) my_malloc(sizeof(sensitive_field_head), MYF(MY_WME)))){
+		if(!s_fields && init_field_head(&s_fields)){
 			uninit_field(s_field);
 			fprintf(stderr, "malloc sensitive field head failed when parsing at line number %d\n",	line_no);
 			(yyval.field_head) =  (sensitive_field_head*) NULL;
 			return (yyval.field_head);
 		}
-		TAILQ_INIT(s_fields);
 		if(add_field(s_fields,s_field))
 		{
 			uninit_field(s_field);
-			my_free(s_fields);
+			uninit_field_head(s_fields);
 			fprintf(stderr, "add the field failed when parsing at line number %d, the field key: %s value: %s\n",
 				line_no, (yyvsp[(1) - (4)].name), (yyvsp[(3) - (4)].name));
 			(yyval.field_head) = (sensitive_field_head*) NULL;
@@ -1478,12 +1475,13 @@ yyreduce:
   case 8:
 
 /* Line 1455 of yacc.c  */
-#line 161 "filter_parser.y"
+#line 158 "filter_parser.y"
     {
 		sensitive_field* s_field = NULL;
 		sensitive_field_head* s_fields = NULL;
 		s_fields = (yyvsp[(1) - (5)].field_head);
 		if (init_field(&s_field, (yyvsp[(2) - (5)].name), (yyvsp[(4) - (5)].name))) {
+			uninit_field_head(s_fields);
 			fprintf(stderr, "initialize the field failed when parsing at line number %d, the key: %s value: %s\n",
 				line_no, (yyvsp[(2) - (5)].name), (yyvsp[(4) - (5)].name));
 			(yyval.field_head) = (sensitive_field_head*) NULL;
@@ -1492,6 +1490,7 @@ yyreduce:
 		if(add_field(s_fields,s_field))
 		{
 			uninit_field(s_field);
+			uninit_field_head(s_fields);
 			fprintf(stderr, "add the field failed when parsing at line number %d, the field key: %s value: %s\n",
 				line_no, (yyvsp[(2) - (5)].name), (yyvsp[(4) - (5)].name));
 			(yyval.field_head) = (sensitive_field_head*) NULL;
@@ -1504,7 +1503,7 @@ yyreduce:
 
 
 /* Line 1455 of yacc.c  */
-#line 1508 "filter_parser.c"
+#line 1507 "filter_parser.c"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -1716,6 +1715,6 @@ yyreturn:
 
 
 /* Line 1675 of yacc.c  */
-#line 182 "filter_parser.y"
+#line 181 "filter_parser.y"
 
 

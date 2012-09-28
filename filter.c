@@ -94,6 +94,48 @@ my_bool is_field_exists(const sensitive_field_head* s_fields, const char* key)
 }
 
 /*
+  Initialize the sensitive field head. 
+
+  SYNOPSIS
+    init_field_head()
+    s_fields         The object of sensitive field head.
+
+  RETURN VALUES
+    0                  success;
+    -1                 failed.
+*/
+int init_field_head(sensitive_field_head** s_fields)
+{
+  DBUG_ENTER("init_field_head");
+  *s_fields =  (sensitive_field_head*) my_malloc(sizeof(sensitive_field_head), MYF(MY_WME));
+  if(!(*s_fields))
+  {
+    DBUG_PRINT("error",("!!!error: Malloc the sensitive field head failed.\n"));
+    DBUG_RETURN(-1);	    
+  }
+  TAILQ_INIT(*s_fields);
+  DBUG_RETURN(0);
+}
+
+/*
+  Uninitialize the sensitive field head. 
+
+  SYNOPSIS
+    uninit_field_head()
+    s_fields         The object of sensitive field head.
+*/
+void uninit_field_head(sensitive_field_head* s_fields)
+{
+  DBUG_ENTER("uninit_field_head");
+  if(s_fields)
+  {
+    clear_fields(s_fields);
+    my_free(s_fields);
+  }
+  DBUG_VOID_RETURN;
+}
+
+/*
   Initialize the sensitive field. 
 
   SYNOPSIS
@@ -225,7 +267,6 @@ void clear_fields(sensitive_field_head* s_fields)
     DBUG_VOID_RETURN;
   for (s_field = TAILQ_FIRST(s_fields); s_field != NULL; s_field = TAILQ_FIRST(s_fields))
     remove_field(s_fields,s_field);
-  my_free(s_fields);
   DBUG_VOID_RETURN;
 }
 
@@ -280,6 +321,53 @@ my_bool is_table_exists(const sensitive_table_head* s_tables, const char* tb)
 }
 
 /*
+  Initialize the sensitive table head. 
+
+  SYNOPSIS
+    init_field_head()
+    s_tables         The object of sensitive table head.
+
+  RETURN VALUES
+    0                  success;
+    -1                 failed.
+*/
+int init_table_head(sensitive_table_head** s_tables)
+{
+  DBUG_ENTER("init_table_head");
+  *s_tables =  (sensitive_table_head*) my_malloc(sizeof(sensitive_table_head), MYF(MY_WME));
+  if(!(*s_tables))
+  {
+    DBUG_PRINT("error",("!!!error: Malloc the sensitive table head failed.\n"));
+    DBUG_RETURN(-1);	    
+  }
+  TAILQ_INIT(*s_tables);
+  DBUG_RETURN(0);
+}
+
+/*
+  Uninitialize the sensitive table head. 
+
+  SYNOPSIS
+    uninit_field_head()
+    s_tables         The object of sensitive table head.
+
+  RETURN VALUES
+    0                  success;
+    -1                 failed.
+*/
+void uninit_table_head(sensitive_table_head* s_tables)
+{
+  DBUG_ENTER("uninit_table_head");
+  if(s_tables)
+  {
+    clear_tables(s_tables);
+    my_free(s_tables);
+  }
+  DBUG_VOID_RETURN;
+
+}
+
+/*
   Initialize the sensitive table based on given table name. 
 
   SYNOPSIS
@@ -294,7 +382,6 @@ my_bool is_table_exists(const sensitive_table_head* s_tables, const char* tb)
 */
 int init_table(sensitive_table** s_table, const char* tb, sensitive_field_head* s_fields)
 {
-  sensitive_field* s_field = NULL;
   DBUG_ENTER("init_field");
   if(!tb)
   {
@@ -315,8 +402,7 @@ int init_table(sensitive_table** s_table, const char* tb, sensitive_field_head* 
   }
   if (!s_fields)
   {
-    (*s_table)->field_lists = (sensitive_field_head*) my_malloc(sizeof(sensitive_field_head), MYF(MY_WME));
-    if(!(*s_table)->field_lists)
+    if(init_field_head(&((*s_table)->field_lists)))
     {
       DBUG_PRINT("error",("!!!error: Malloc the sensitive field head failed!\n"));
       my_free((*s_table)->tb_name);
@@ -426,7 +512,6 @@ void clear_tables(sensitive_table_head* s_tables)
     DBUG_VOID_RETURN;
   for (s_table = TAILQ_FIRST(s_tables); s_table != NULL; s_table = TAILQ_FIRST(s_tables))
     remove_table(s_tables,s_table);
-  my_free(s_tables);
   DBUG_VOID_RETURN;
 }
 
@@ -481,6 +566,53 @@ my_bool is_db_exists(const sensitive_db_head* s_dbs, const char* db)
 }
 
 /*
+  Initialize the sensitive database head. 
+
+  SYNOPSIS
+    init_db_head()
+    s_dbs         The object of sensitive database head.
+
+  RETURN VALUES
+    0                  success;
+    -1                 failed.
+*/
+int init_db_head(sensitive_db_head** s_dbs)
+{
+  DBUG_ENTER("init_db_head");
+  *s_dbs =  (sensitive_db_head*) my_malloc(sizeof(sensitive_db_head), MYF(MY_WME));
+  if(!(*s_dbs))
+  {
+    DBUG_PRINT("error",("!!!error: Malloc the sensitive database head failed.\n"));
+    DBUG_RETURN(-1);	    
+  }
+  TAILQ_INIT(*s_dbs);
+  DBUG_RETURN(0);
+}
+
+/*
+  Uninitialize the sensitive database head. 
+
+  SYNOPSIS
+    uninit_db_head()
+    s_dbs         The object of sensitive database head.
+
+  RETURN VALUES
+    0                  success;
+    -1                 failed.
+*/
+void uninit_db_head(sensitive_db_head* s_dbs)
+{
+  DBUG_ENTER("uninit_db_head");
+  if(s_dbs)
+  {
+    clear_dbs(s_dbs);
+    my_free(s_dbs);
+  }
+  DBUG_VOID_RETURN;
+
+}
+
+/*
   Initialize the sensitive database of given database name. 
 
   SYNOPSIS
@@ -495,7 +627,6 @@ my_bool is_db_exists(const sensitive_db_head* s_dbs, const char* db)
 */
 int init_db(sensitive_db** s_db, const char* db, sensitive_table_head* s_tables)
 {
-  sensitive_table* s_table = NULL;
   DBUG_ENTER("init_db");
   if(!db)
   {
@@ -516,8 +647,7 @@ int init_db(sensitive_db** s_db, const char* db, sensitive_table_head* s_tables)
   }
   if(!s_tables)
   {
-    (*s_db)->table_lists = (sensitive_table_head*) my_malloc(sizeof(sensitive_table_head), MYF(MY_WME));
-    if(!(*s_db)->table_lists)
+    if(init_table_head(&((*s_db)->table_lists)))
     {
       DBUG_PRINT("error",("!!!error: Malloc the sensitive table head failed!\n"));
       my_free((*s_db)->db_name);
@@ -627,7 +757,6 @@ void clear_dbs(sensitive_db_head* s_dbs)
     DBUG_VOID_RETURN;
   for (s_db = TAILQ_FIRST(s_dbs); s_db != NULL; s_db = TAILQ_FIRST(s_dbs))
     remove_db(s_dbs,s_db);
-  my_free(s_dbs);
   DBUG_VOID_RETURN;
 }
 

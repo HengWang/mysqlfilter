@@ -704,20 +704,12 @@ static int process_sets_cond(char* filter_conds)
   sensitive_db* s_db = NULL;
   sensitive_table* s_tb = NULL;
   sensitive_field* s_fd = NULL;
-
-  sensitive_table_head* s_tbs = NULL;
-  sensitive_field_head* s_fds = NULL;
-  
+ 
   DBUG_ENTER("process_sets_cond");  
-  if (!sensitive_filter)
+  if(!sensitive_filter && init_db_head(&sensitive_filter))
   {
-    sensitive_filter =  (sensitive_db_head*) my_malloc(sizeof(sensitive_db_head), MYF(MY_WME));
-    if(!sensitive_filter)
-    {
-      DBUG_PRINT("error",("!!!error: Malloc the sensitive database head failed.\n"));
-      DBUG_RETURN(-1);	    
-    }
-    TAILQ_INIT(sensitive_filter);
+    DBUG_PRINT("error",("!!!error: Initialize the sensitive database head failed.\n"));
+    DBUG_RETURN(-1);	    
   }
   token = strtok_r(filter_conds,DELIM_KEY,&last);
   while(token)
@@ -745,7 +737,7 @@ static int process_sets_cond(char* filter_conds)
           {
             DBUG_PRINT("error",("!!!error: Add the field, table, database failed!"));
             uninit_db(s_db);
-            DBUG_RETURN(-1);
+            goto err;
           }
         }
         /* Get the table of given tb_name. If the table is not exists, initialize the 
@@ -754,13 +746,13 @@ static int process_sets_cond(char* filter_conds)
         {
           if(init_table(&s_tb,tb_name,(sensitive_field_head*) NULL)){
             DBUG_PRINT("error",("!!!error: Initialize the table failed. The table name: %s.\n", tb_name));
-            DBUG_RETURN(-1);
+            goto err;
           }
           if(add_table(s_db->table_lists,s_tb))
           {
             DBUG_PRINT("error",("!!!error: Add the table failed!"));
             uninit_table(s_tb);
-            DBUG_RETURN(-1);
+            goto err;
           }
         }        
         /* Check the field name whether in the field list or not. If the field is not exists,
@@ -775,22 +767,24 @@ static int process_sets_cond(char* filter_conds)
           {
             DBUG_PRINT("error",("!!!error: Add the field failed!"));
             uninit_field(s_fd);
-            DBUG_RETURN(-1);
+            goto err;
           }
-        }
-        
+        }        
       }else{
         DBUG_PRINT("error",("!!!error: Extract the key from failed!"));
-        DBUG_RETURN(-1);
+        goto err;
       }
     }else{
       DBUG_PRINT("error",("!!!error: Extract the key value from equation failed!"));
-      DBUG_RETURN(-1);
+      goto err;
     }
     db_name = tb_name = fd_name=NULL;
     token = strtok_r(NULL,DELIM_KEY,&last);
   }
   DBUG_RETURN(0); 
+err:
+  uninit_db_head(sensitive_filter);
+  DBUG_RETURN(-1);
 }
 
 /*
@@ -808,20 +802,16 @@ static int process_rule_cond(char* rule_path)
 {
   int ret;
   DBUG_ENTER("process_rule_cond");
-  if (!sensitive_filter)
+  if(!sensitive_filter && init_db_head(&sensitive_filter))
   {
-    sensitive_filter =  (sensitive_db_head*) my_malloc(sizeof(sensitive_db_head), MYF(MY_WME));
-    if(!sensitive_filter)
-    {
-      DBUG_PRINT("error",("!!!error: Malloc the sensitive database head failed.\n"));
-      DBUG_RETURN(-1);	    
-    }
-    TAILQ_INIT(sensitive_filter);
+    DBUG_PRINT("error",("!!!error: Initialize the sensitive database head failed.\n"));
+    DBUG_RETURN(-1);	    
   }
   if (!(yyin= fopen(rule_path, "r")))
   {
     DBUG_PRINT("error",("!!!error: Failed to open file %s.\n",rule_path));
-    DBUG_RETURN(-1);
+    ret = -1;
+    goto err;
   }
   ret = setjmp(parser_error_env);
 	if (!ret)
@@ -834,7 +824,8 @@ err:
 	if (yyin)
 		fclose(yyin);
 	if (ret) {
-		clear_dbs(sensitive_filter);
+		uninit_db_head(sensitive_filter);
+    DBUG_RETURN(-1);
 	}
   DBUG_RETURN(0); 
 }
@@ -5665,7 +5656,7 @@ err:
     fclose(stderror_file);
 #ifdef MYSQLDUMP_FILTER
   if(sensitive_filter)
-    clear_dbs(sensitive_filter);
+    uninit_db_head(sensitive_filter);
 #endif
   return(first_error);
 } /* main */
