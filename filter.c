@@ -429,7 +429,7 @@ void uninit_table(sensitive_table* s_table)
   {
     my_free(s_table->tb_name);
     if(s_table->field_lists)
-      clear_fields(s_table->field_lists);
+      uninit_field_head(s_table->field_lists);
     my_free(s_table);
   }
   DBUG_VOID_RETURN;
@@ -674,7 +674,7 @@ void uninit_db(sensitive_db* s_db)
   {
     my_free(s_db->db_name);
     if(s_db->table_lists)
-      clear_tables(s_db->table_lists);
+      uninit_table_head(s_db->table_lists);
     my_free(s_db);
   }
   DBUG_VOID_RETURN;

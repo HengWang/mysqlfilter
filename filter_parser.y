@@ -65,17 +65,20 @@ database   :       DATABASE ID '{' table '}'
 	{
 		sensitive_db* s_db = NULL;
 		if(init_db(&s_db, $2, $4)){
+			free($2);
 			fprintf(stderr, "initialize the db failed when parsing at line number %d, the name of db: %s\n",	line_no, $2);
 			$$ = 0;
 			return $$;
 		}
 		if(add_db(sensitive_filter, s_db)){
+			free($2);
 			uninit_db(s_db);
 			fprintf(stderr, "add database failed when parsing at line number %d, the name of db: %s\n",	line_no, $2);
 			$$ = 0;
 			return $$;
 		}
 		s_tables = NULL;
+		free($2);
 		$$ = 1;
 	}
 	    ;
@@ -85,24 +88,27 @@ table
 	{
 		sensitive_table* s_table = NULL;
 		if(init_table(&s_table, $2, $4)){
+			free($2);
 			fprintf(stderr, "initialize the table failed when parsing at line number %d, the name of db: %s\n",	line_no, $2);
 			$$ = (sensitive_table_head*) NULL;
 			return $$;
 		}		
-		if(!s_tables && init_table_head(&s_tables))
-		{
+		if(!s_tables && init_table_head(&s_tables)){
+			free($2);
 			uninit_table(s_table);
 			fprintf(stderr, "malloc the sensitive table head failed when parsing at line number %d\n",	line_no);
 			$$ =  0;
 			return $$;		    
 		}
 		if(add_table(s_tables, s_table)){
+			free($2);
 			uninit_table(s_table);
 			uninit_table_head(s_tables);
 			fprintf(stderr, "add table failed when parsing at line number %d, the name of db: %s\n",	line_no, $2);
 			$$ =  (sensitive_table_head*) NULL;
 			return $$;
 		}
+		free($2);
 		$$ = s_tables;
 	}
 	 |       table TABLE  ID '{' field '}'
@@ -110,18 +116,21 @@ table
 		sensitive_table* s_table = NULL;
 		sensitive_table_head* s_tables = $1;
 		if(init_table(&s_table, $3, $5)){
+			free($3);
 			uninit_table_head(s_tables);
 			fprintf(stderr, "initialize the table failed when parsing at line number %d, the name of db: %s\n",	line_no, $3);
 			$$ =  (sensitive_table_head*) NULL;
 			return $$;
 		}
 		if(add_table(s_tables, s_table)){
+			free($3);
 			uninit_table(s_table);
 			uninit_table_head(s_tables);
 			fprintf(stderr, "add table failed when parsing at line number %d, the name of db: %s\n",	line_no, $3);
 			$$ =  (sensitive_table_head*) NULL;
 			return $$;
 		}
+		free($3);
 		$$ = s_tables;
 	}
 	    ;
@@ -132,19 +141,21 @@ field
 		sensitive_field* s_field = NULL;
 		sensitive_field_head* s_fields = NULL;
 		if (init_field(&s_field, $1, $3)) {
+			free($1);free($3);			
 			fprintf(stderr, "initialize the field failed when parsing at line number %d, the key: %s value: %s\n",
 				line_no, $1, $3);
 			$$ =  (sensitive_field_head*) NULL;
 			return $$;
 		}
 		if(!s_fields && init_field_head(&s_fields)){
+			free($1);free($3);	
 			uninit_field(s_field);
 			fprintf(stderr, "malloc sensitive field head failed when parsing at line number %d\n",	line_no);
 			$$ =  (sensitive_field_head*) NULL;
 			return $$;
 		}
-		if(add_field(s_fields,s_field))
-		{
+		if(add_field(s_fields,s_field)){
+			free($1);free($3);	
 			uninit_field(s_field);
 			uninit_field_head(s_fields);
 			fprintf(stderr, "add the field failed when parsing at line number %d, the field key: %s value: %s\n",
@@ -152,6 +163,7 @@ field
 			$$ = (sensitive_field_head*) NULL;
 			return $$;
 		}
+		free($1);free($3);	
 		$$ = s_fields;
 	}
 	        |       field ID '=' ID ';'
@@ -160,14 +172,15 @@ field
 		sensitive_field_head* s_fields = NULL;
 		s_fields = $1;
 		if (init_field(&s_field, $2, $4)) {
+			free($2);free($4);	
 			uninit_field_head(s_fields);
 			fprintf(stderr, "initialize the field failed when parsing at line number %d, the key: %s value: %s\n",
 				line_no, $2, $4);
 			$$ = (sensitive_field_head*) NULL;
 			return $$;
 		}
-		if(add_field(s_fields,s_field))
-		{
+		if(add_field(s_fields,s_field)){
+			free($2);free($4);	
 			uninit_field(s_field);
 			uninit_field_head(s_fields);
 			fprintf(stderr, "add the field failed when parsing at line number %d, the field key: %s value: %s\n",
@@ -175,6 +188,7 @@ field
 			$$ = (sensitive_field_head*) NULL;
 			return $$;
 		}
+		free($2);free($4);	
 		$$ = s_fields;
 	}
         ;

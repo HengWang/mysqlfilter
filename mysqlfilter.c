@@ -3488,6 +3488,7 @@ static void dump_table(char *table, char *db)
           if(i < num_fields -1)
             dynstr_append_checked(&query_string, ",");
         }
+        mysql_free_result(res);
         dynstr_append_checked(&query_string, " INTO OUTFILE '");
      }else
 #endif  
@@ -3570,6 +3571,7 @@ static void dump_table(char *table, char *db)
           if(i++ < num_fields -1)
             dynstr_append_checked(&query_string, ",");
         }
+        mysql_free_result(res);
         dynstr_append_checked(&query_string, " FROM ");
       }else
 #endif   
