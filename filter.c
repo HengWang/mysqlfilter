@@ -107,6 +107,8 @@ my_bool is_field_exists(const sensitive_field_head* s_fields, const char* key)
 int init_field_head(sensitive_field_head** s_fields)
 {
   DBUG_ENTER("init_field_head");
+  if(*s_fields)
+    uninit_field_head(*s_field);
   *s_fields =  (sensitive_field_head*) my_malloc(sizeof(sensitive_field_head), MYF(MY_WME));
   if(!(*s_fields))
   {
@@ -156,6 +158,8 @@ int init_field(sensitive_field** s_field, const char* key, const char* value)
     DBUG_PRINT("error",("!!!error: The key or value is NULL!\n"));
     DBUG_RETURN(-1);
   }
+  if(*s_field)
+    uninit_field(*s_field);
   *s_field = (sensitive_field*) my_malloc(sizeof(sensitive_field), MYF(MY_WME));
   if(s_field==NULL)
   {
@@ -334,6 +338,8 @@ my_bool is_table_exists(const sensitive_table_head* s_tables, const char* tb)
 int init_table_head(sensitive_table_head** s_tables)
 {
   DBUG_ENTER("init_table_head");
+  if(*s_tables)
+    uninit_table_head(*s_tables);
   *s_tables =  (sensitive_table_head*) my_malloc(sizeof(sensitive_table_head), MYF(MY_WME));
   if(!(*s_tables))
   {
@@ -388,6 +394,8 @@ int init_table(sensitive_table** s_table, const char* tb, sensitive_field_head* 
     DBUG_PRINT("error",("!!!error: The name of table is NULL!\n"));
     DBUG_RETURN(-1);
   }
+  if(*s_table)
+    uninit_table(*s_table);
   *s_table = (sensitive_table*) my_malloc(sizeof(sensitive_table), MYF(MY_WME));
   if(!(*s_table))
   {
@@ -579,6 +587,8 @@ my_bool is_db_exists(const sensitive_db_head* s_dbs, const char* db)
 int init_db_head(sensitive_db_head** s_dbs)
 {
   DBUG_ENTER("init_db_head");
+  if(*s_dbs)
+    uninit_db_head(*s_dbs);
   *s_dbs =  (sensitive_db_head*) my_malloc(sizeof(sensitive_db_head), MYF(MY_WME));
   if(!(*s_dbs))
   {
@@ -633,6 +643,8 @@ int init_db(sensitive_db** s_db, const char* db, sensitive_table_head* s_tables)
     DBUG_PRINT("error",("!!!error: The name of database is NULL!\n"));
     DBUG_RETURN(-1);
   }
+  if(*s_db)
+    uninit_db(*s_db);
   *s_db = (sensitive_db*) my_malloc(sizeof(sensitive_db), MYF(MY_WME));
   if(!(*s_db))
   {
