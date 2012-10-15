@@ -85,6 +85,10 @@
 #ifndef MYSQLDUMP_FILTER
 #define MYSQLDUMP_FILTER
 #endif
+/*mysqldump limit macro*/
+#ifndef MYSQLDUMP_LIMIT
+#define MYSQLDUMP_LIMIT
+#endif
 
 static void add_load_option(DYNAMIC_STRING *str, const char *option,
                              const char *option_value);
@@ -168,6 +172,10 @@ sensitive_db_head* sensitive_filter;
 extern FILE *yyin;
 extern jmp_buf parser_error_env;
 extern int yyparse(void);
+#endif
+
+#ifdef MYSQLDUMP_LIMIT
+static uint limit=0;
 #endif
 
 /*
@@ -534,6 +542,10 @@ static struct my_option my_long_options[] =
    &sets, &sets, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
    {"rule", 'U', "Set the rule file path for replacing sensitive fields, the replacement rules from configure file.",
    &rule, &rule, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+#endif
+#ifdef MYSQLDUMP_LIMIT
+   {"limit", 'L', "Set the limit to dump.",
+   &limit, &limit, 0, GET_UINT, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
 #endif
   {"xml", 'X', "Dump a database as well formed XML.", 0, 0, 0, GET_NO_ARG,
    NO_ARG, 0, 0, 0, 0, 0, 0},
@@ -3381,6 +3393,12 @@ static void dump_table(char *table, char *db)
   sensitive_table* s_table;
   sensitive_db* s_db;
 #endif
+#ifdef MYSQLDUMP_LIMIT
+  uint start = 0, count = 0, total = 0,insert_flag = 0;
+  uint start_str_len = 0, limit_str_len = 0, length = 0, sql_len = 0;
+  char* ptr = 0,* new_ptr;
+  char start_str[65],limit_str[65];
+#endif
   DBUG_ENTER("dump_table");
 
   /*
@@ -3491,11 +3509,10 @@ static void dump_table(char *table, char *db)
         mysql_free_result(res);
         dynstr_append_checked(&query_string, " INTO OUTFILE '");
      }else
+        dynstr_append_checked(&query_string, "SELECT /*!40001 SQL_NO_CACHE */ * INTO OUTFILE '");
+   }else
 #endif  
     dynstr_append_checked(&query_string, "SELECT /*!40001 SQL_NO_CACHE */ * INTO OUTFILE '");
-#ifdef MYSQLDUMP_FILTER
-   }
-#endif
     dynstr_append_checked(&query_string, filename);
     dynstr_append_checked(&query_string, "'");
 
@@ -3528,6 +3545,55 @@ static void dump_table(char *table, char *db)
       dynstr_append_checked(&query_string, " ORDER BY ");
       dynstr_append_checked(&query_string, order_by);
     }
+
+#ifdef MYSQLDUMP_LIMIT
+    if (limit)
+    {      
+      my_snprintf(buf, sizeof(buf), "SELECT COUNT(*) FROM %s",
+        result_table);
+      if(where)
+        my_snprintf(buf+strlen(buf),sizeof(buf), " WHERE %s",where);  
+      if (mysql_query_with_error_report(mysql, &res, buf))
+      {    
+        dynstr_free(&query_string);
+        DBUG_VOID_RETURN;
+      }
+      if ((row= mysql_fetch_row(res)))
+      {      
+          total = atoi(row[0]);
+      }
+      mysql_free_result(res);
+      dynstr_append_checked(&query_string," LIMIT ");
+      ptr = query_string.str+query_string.length;
+      sql_len = query_string.length;
+path_limit_loop:
+      start = (count++)*limit;
+      int10_to_str(start,start_str,10);
+      int10_to_str(limit,limit_str,10);
+      start_str_len=strlen(start_str);
+      limit_str_len=strlen(limit_str);
+      length = start_str_len + limit_str_len +1;
+      query_string.length = sql_len;
+      if (query_string.length+length >= query_string.max_length)
+      {
+        size_t new_length=(query_string.length+length+query_string.alloc_increment)/
+          query_string.alloc_increment;
+        new_length*=query_string.alloc_increment;
+        if (!(new_ptr=(char*) my_realloc(query_string.str,new_length,MYF(MY_WME))))
+        { 
+          dynstr_free(&query_string);
+          DBUG_VOID_RETURN;
+        }
+        query_string.str=new_ptr;
+        query_string.max_length=new_length;
+      }
+      memcpy(ptr,start_str,start_str_len);
+      memcpy(ptr+start_str_len,",",1);
+      memcpy(ptr+start_str_len+1,limit_str,limit_str_len);
+      query_string.length+=length;
+      query_string.str[query_string.length]=0;	
+    }    
+#endif
 
     if (mysql_real_query(mysql, query_string.str, query_string.length))
     {
@@ -3574,11 +3640,10 @@ static void dump_table(char *table, char *db)
         mysql_free_result(res);
         dynstr_append_checked(&query_string, " FROM ");
       }else
+        dynstr_append_checked(&query_string, "SELECT /*!40001 SQL_NO_CACHE */ * FROM ");
+    }else
 #endif   
     dynstr_append_checked(&query_string, "SELECT /*!40001 SQL_NO_CACHE */ * FROM ");
-#ifdef MYSQLDUMP_FILTER
-    }
-#endif
     dynstr_append_checked(&query_string, result_table);
 
     if (where)
@@ -3602,7 +3667,58 @@ static void dump_table(char *table, char *db)
       dynstr_append_checked(&query_string, " ORDER BY ");
       dynstr_append_checked(&query_string, order_by);
     }
-
+	
+#ifdef MYSQLDUMP_LIMIT
+    if (limit)
+    {      
+      my_snprintf(buf, sizeof(buf), "SELECT COUNT(*) FROM %s",
+        result_table);
+      if(where)
+        my_snprintf(buf+strlen(buf),sizeof(buf), " WHERE %s",where);  
+      if (mysql_query_with_error_report(mysql, &res, buf))
+      {    
+        dynstr_free(&query_string);
+        DBUG_VOID_RETURN;
+      }
+      if ((row= mysql_fetch_row(res)))
+      {      
+        total = atoi(row[0]);
+      }
+      mysql_free_result(res);
+      dynstr_append_checked(&query_string," LIMIT ");
+      ptr = query_string.str+query_string.length;
+      sql_len = query_string.length;
+limit_loop:
+      start = (count++)*limit;
+      int10_to_str(start,start_str,10);
+      int10_to_str(limit,limit_str,10);
+      start_str_len=strlen(start_str);
+      limit_str_len=strlen(limit_str);
+      length = start_str_len + limit_str_len +1;
+      query_string.length = sql_len;
+      if (query_string.length+length >= query_string.max_length)
+      {
+        size_t new_length=(query_string.length+length+query_string.alloc_increment)/
+          query_string.alloc_increment;
+        new_length*=query_string.alloc_increment;
+        if (!(new_ptr=(char*) my_realloc(query_string.str,new_length,MYF(MY_WME))))
+        { 
+          dynstr_free(&query_string);
+          DBUG_VOID_RETURN;
+        }
+        query_string.str=new_ptr;
+        query_string.max_length=new_length;
+      }
+      memcpy(ptr,start_str,start_str_len);
+      memcpy(ptr+start_str_len,",",1);
+      memcpy(ptr+start_str_len+1,limit_str,limit_str_len);
+      query_string.length+=length;
+      query_string.str[query_string.length]=0;	
+    }    
+#endif
+#ifdef MYSQLDUMP_LIMIT
+    if(!insert_flag)
+#endif 
     if (!opt_xml && !opt_compact)
     {
       fputs("\n", md_result_file);
@@ -3631,6 +3747,9 @@ static void dump_table(char *table, char *db)
       error= EX_CONSCHECK;
       goto err;
     }
+#ifdef MYSQLDUMP_LIMIT
+    if(!insert_flag){
+#endif 
 
     if (opt_lock)
     {
@@ -3644,11 +3763,14 @@ static void dump_table(char *table, char *db)
 	      opt_quoted_table);
       check_io(md_result_file);
     }
-
     total_length= opt_net_buffer_length;                /* Force row break */
     row_break=0;
     rownr=0;
     init_length=(uint) insert_pat.length+4;
+#ifdef MYSQLDUMP_LIMIT
+    insert_flag = 1;
+    }
+#endif 
     if (opt_xml)
       print_xml_tag(md_result_file, "\t", "\n", "table_data", "name=", table,
               NullS);
@@ -3866,7 +3988,7 @@ static void dump_table(char *table, char *db)
         {
           if (row_break)
             fputs(";\n", md_result_file);
-          row_break=1;                          /* This is first row */
+          row_break=1;                          /* This is first row */       
 
           fputs(insert_pat.str,md_result_file);
           fputs(extended_row.str,md_result_file);
@@ -3880,7 +4002,16 @@ static void dump_table(char *table, char *db)
         check_io(md_result_file);
       }
     }
-
+	
+#ifdef MYSQLDUMP_LIMIT
+    mysql_free_result(res);
+    if (total > count*limit)
+    {
+      if(path)
+        goto path_limit_loop;
+      goto limit_loop;
+    }
+#endif
     /* XML - close table tag and supress regular output */
     if (opt_xml)
         fputs("\t</table_data>\n", md_result_file);
@@ -3919,7 +4050,7 @@ static void dump_table(char *table, char *db)
       fprintf(md_result_file, "commit;\n");
       check_io(md_result_file);
     }
-    mysql_free_result(res);
+//    mysql_free_result(res);
   }
   dynstr_free(&query_string);
   DBUG_VOID_RETURN;
