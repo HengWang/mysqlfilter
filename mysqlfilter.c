@@ -87,7 +87,7 @@
 #endif
 /*mysqldump limit macro*/
 #ifndef MYSQLDUMP_LIMIT
-#define MYSQLDUMP_LIMIT
+/*#define MYSQLDUMP_LIMIT*/
 #endif
 
 static void add_load_option(DYNAMIC_STRING *str, const char *option,
