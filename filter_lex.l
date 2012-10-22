@@ -36,8 +36,17 @@ jmp_buf parser_error_env;
 ^#.*[ \t]*  {/* Comments */}
 "database"	{return DATABASE;}
 "table"		{return TABLE;}
+"filter"	{return FILTER;}
+"where"		{return WHERE;}
+"="         {yylval.name = strdup(yytext); return LINK;}
+">"         {yylval.name = strdup(yytext); return LINK;}
+">="         {yylval.name = strdup(yytext); return LINK;}
+"<"         {yylval.name = strdup(yytext); return LINK;}
+"<="         {yylval.name = strdup(yytext); return LINK;}
+"like"      {yylval.name = strdup(yytext); return LINK;}
+"in"        {yylval.name = strdup(yytext); return LINK;}
 [a-zA-Z0-9_\-]+ {yylval.name = strdup(yytext); return ID;}
-\"[^"]*\" {yylval.name = strdup(yytext+1); yylval.name[strlen(yylval.name)-1] = '\0'; return ID; }
+\"[^"]*\" {yylval.name = strdup(yytext); yylval.name[strlen(yylval.name)] = '\0'; return ID; }
 \'[^']*\' {yylval.name = strdup(yytext+1); yylval.name[strlen(yylval.name)-1] = '\0'; return ID; }
 .	{return yytext[0];}
 %%

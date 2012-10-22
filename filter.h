@@ -16,9 +16,50 @@ for you to contact me.
 @Github: https://github.com/HengWang/
 */
 
-
 #include <my_global.h>
 #include <my_sys.h>
+
+/* The const variables*/
+#ifndef DELIM_KEY
+#define DELIM_KEY ","
+#endif
+#ifndef LINK_KEY
+#define LINK_KEY '.'
+#endif
+#ifndef EQUAL_KEY
+#define EQUAL_KEY "="
+#define EQUAL_KEY_LEN 1
+#endif
+#ifndef BIGGER_KEY
+#define BIGGER_KEY ">"
+#define BIGGER_KEY_LEN 1
+#endif
+#ifndef BIGGER_EQUAL_KEY
+#define BIGGER_EQUAL_KEY ">="
+#define BIGGER_EQUAL_KEY_LEN 2
+#endif
+#ifndef LESS_KEY
+#define LESS_KEY "<"
+#define LESS_KEY_LEN 1
+#endif
+#ifndef LESS_EQUAL_KEY
+#define LESS_EQUAL_KEY ">"
+#define LESS_EQUAL_KEY_LEN 1
+#endif
+#ifndef LIKE_KEY
+#define LIKE_KEY "LIKE"
+#define LIKE_KEY_LEN 4
+#endif
+#ifndef IN_KEY
+#define IN_KEY "IN"
+#define IN_KEY_LEN 2
+#endif
+#ifndef FILTER_TYPE
+#define FILTER_TYPE 0
+#endif
+#ifndef WHERE_TYPE
+#define WHERE_TYPE 1
+#endif
 
 /*
  * Tail queue functions.
@@ -157,11 +198,16 @@ struct type **tqh_last;		/* addr of last next element */	\
  */
 struct st_key_value{
   char* key;    //The field name
-  char* value;    //The value of replacement on field fd_name.
+  char* link; //The link symbol.
+  char* value;    //The value of replacement on field fd_name. 
   TAILQ_ENTRY(st_key_value) next;
 };
-TAILQ_HEAD (st_key_value_head, st_key_value);
-
+//TAILQ_HEAD (st_key_value_head, st_key_value);
+struct st_key_value_head {					
+  struct st_key_value *tqh_first;		/* first element */		
+  struct st_key_value **tqh_last;		/* addr of last next element */	
+  uint type;
+};
 typedef struct st_key_value sensitive_field;
 typedef struct st_key_value_head sensitive_field_head;
 
@@ -171,6 +217,9 @@ typedef struct st_key_value_head sensitive_field_head;
 struct st_sensitive_table_fields{
   char* tb_name;    //The table name
   sensitive_field_head* field_lists;  //Field lists for replacing into insensitive words.
+  sensitive_field_head* where_lists; // Where condition lists to filter dump data.
+  uint num_filter; //The number of filter condition.
+  uint num_where; //The number of where condition.
   TAILQ_ENTRY(st_sensitive_table_fields) next;
 };
 TAILQ_HEAD (st_sensitive_table_fields_head, st_sensitive_table_fields);
@@ -207,7 +256,7 @@ typedef struct st_sensitive_db_tables_fields_head sensitive_db_head;
     NULL               no matched key in the list of sensitive fields;
     value                 the value of the given key.
 */
-char* get_value(const sensitive_field_head* s_fields, const char* key );
+char* get_value(const sensitive_field_head* s_fields, const char* key);
 
 /*
   Get the field of the given key in the sensitive field lists. 
@@ -222,7 +271,7 @@ char* get_value(const sensitive_field_head* s_fields, const char* key );
     0                  success;
     -1                 failed.
 */
-int get_field(const sensitive_field_head* s_fields, sensitive_field** s_field,const char* key );
+int get_field(const sensitive_field_head* s_fields, sensitive_field** s_field, const char* key);
 
 /*
 Check the key whether in the sensitive field list or not. 
@@ -230,13 +279,15 @@ Check the key whether in the sensitive field list or not.
 SYNOPSIS
 is_field_exists()
 s_fields       The list of sensitive fields.
-key              The given key.
+key               The given key.
+link               The given link symbol.
+value            The given value.
 
 RETURN VALUES
 TRUE          success;
 FALSE         failed.
 */
-my_bool is_field_exists(const sensitive_field_head* s_fields, const char* key);
+my_bool is_field_exists(const sensitive_field_head* s_fields, const char* key, const char* link, const char* value);
 
 /*
   Initialize the sensitive field head. 
@@ -244,12 +295,13 @@ my_bool is_field_exists(const sensitive_field_head* s_fields, const char* key);
   SYNOPSIS
     init_field_head()
     s_fields         The object of sensitive field head.
+    type               The field type.
 
   RETURN VALUES
     0                  success;
     -1                 failed.
 */
-int init_field_head(sensitive_field_head** s_fields);
+int init_field_head(sensitive_field_head** s_fields, const uint type);
 
 /*
   Uninitialize the sensitive field head. 
@@ -267,13 +319,14 @@ void uninit_field_head(sensitive_field_head* s_fields);
     init_field()
     s_field         The object of sensitive field.
     key              The given key.
+    link              The link symbol.
     value            The value of the key.
 
   RETURN VALUES
     0                  success;
     -1                 failed.
 */
-int init_field(sensitive_field** s_field, const char* key, const char* value);
+int init_field(sensitive_field** s_field, const char* key, const char* link, const char* value);
 
 /*
   Uninitialize the sensitive field. 
@@ -376,20 +429,23 @@ int init_table_head(sensitive_table_head** s_tables);
 */
 void uninit_table_head(sensitive_table_head* s_tables);
 
+#define init_table_filter(A,B,C) init_table(A,B,C,NULL)
+#define init_table_where(A,B,C) init_table(A,B,NULL,C)
 /*
   Initialize the sensitive table based on given table name. 
 
   SYNOPSIS
     init_table()
     s_table         The object of sensitive table.
-    tb                 The table name
-    s_fields          The sensitive field lists.
+    tb                  The table name
+    f_s_fields     The sensitive filter field lists.
+    w_s_fields   The sensitive where field lists.
  
   RETURN VALUES
     0                  success;
     -1                 failed.
 */
-int init_table(sensitive_table** s_table, const char* tb, sensitive_field_head* s_fields);
+int init_table(sensitive_table** s_table, const char* tb, sensitive_field_head* f_s_fields, sensitive_field_head* w_s_fields);
 
 /*
   Uninitialize the sensitive table . 

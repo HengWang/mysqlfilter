@@ -17,31 +17,6 @@ for you to contact me.
 #include "filter.h"
 
 /*
-  Get the value of the given key in the sensitive field lists. 
-
-  SYNOPSIS
-    get_value()
-    s_fields       The list of sensitive fields.
-    key              The given key.
-
-  RETURN VALUES
-    NULL               no matched key in the list of sensitive fields;
-    value                 the value of the given key.
-*/
-char* get_value(const sensitive_field_head* s_fields, const char* key )
-{
-  sensitive_field* field;
-  DBUG_ENTER("get_value");
-  if(!s_fields || TAILQ_EMPTY(s_fields) || !key)
-    DBUG_RETURN(NULL);
-  TAILQ_FOREACH(field, s_fields,next){
-    if (field && field->key && strncasecmp(field->key, key, max(strlen(key),strlen(field->key)))==0)
-      DBUG_RETURN(field->value);
-  }
-  DBUG_RETURN(NULL);
-}
-
-/*
   Get the field of the given key in the sensitive field lists. 
 
   SYNOPSIS
@@ -54,7 +29,7 @@ char* get_value(const sensitive_field_head* s_fields, const char* key )
     0                  success;
     -1                 failed.
 */
-int get_field(const sensitive_field_head* s_fields, sensitive_field** s_field,const char* key )
+int get_field(const sensitive_field_head* s_fields, sensitive_field** s_field,const char* key)
 {
   DBUG_ENTER("get_field");
   if(!s_fields || TAILQ_EMPTY(s_fields) || !key)
@@ -72,20 +47,25 @@ int get_field(const sensitive_field_head* s_fields, sensitive_field** s_field,co
   SYNOPSIS
     is_field_exists()
     s_fields       The list of sensitive fields.
-    key              The given key.
+    key               The given key.
+    link               The given link symbol.
+    value            The given value.
 
   RETURN VALUES
     TRUE          success;
     FALSE         failed.
 */
-my_bool is_field_exists(const sensitive_field_head* s_fields, const char* key)
+my_bool is_field_exists(const sensitive_field_head* s_fields, const char* key, const char* link, const char* value)
 {
   sensitive_field* field;
   DBUG_ENTER("is_field_exists");
-  if(!s_fields || TAILQ_EMPTY(s_fields) || !key)
+  if(!s_fields || TAILQ_EMPTY(s_fields) || !key || !link || !value)
     DBUG_RETURN(FALSE);
   TAILQ_FOREACH(field, s_fields,next){
-    if (field && field->key && !strncasecmp(field->key, key, max(strlen(key),strlen(field->key))))
+    if (field && field->key && field->link && field->value && key &&link && value &&
+      !strncasecmp(field->key, key, max(strlen(key),strlen(field->key))) &&
+      !strncasecmp(field->link, link, max(strlen(link),strlen(field->link))) &&
+      !strncasecmp(field->value, value, max(strlen(value),strlen(field->value))))
       DBUG_RETURN(TRUE);
   }
   DBUG_RETURN(FALSE);
@@ -97,12 +77,13 @@ my_bool is_field_exists(const sensitive_field_head* s_fields, const char* key)
   SYNOPSIS
     init_field_head()
     s_fields         The object of sensitive field head.
+    type               The field type.
 
   RETURN VALUES
     0                  success;
     -1                 failed.
 */
-int init_field_head(sensitive_field_head** s_fields)
+int init_field_head(sensitive_field_head** s_fields, const uint type)
 {
   DBUG_ENTER("init_field_head");
   *s_fields =  (sensitive_field_head*) my_malloc(sizeof(sensitive_field_head), MYF(MY_WME));
@@ -111,6 +92,7 @@ int init_field_head(sensitive_field_head** s_fields)
     DBUG_PRINT("error",("!!!error: Malloc the sensitive field head failed.\n"));
     DBUG_RETURN(-1);	    
   }
+  (*s_fields)->type = type? 1:0;
   TAILQ_INIT(*s_fields);
   DBUG_RETURN(0);
 }
@@ -125,9 +107,9 @@ int init_field_head(sensitive_field_head** s_fields)
 void uninit_field_head(sensitive_field_head* s_fields)
 {
   DBUG_ENTER("uninit_field_head");
-  if(s_fields)
-  {
+  if(TAILQ_EMPTY(s_fields))
     clear_fields(s_fields);
+  if(s_fields){
     my_free(s_fields);
   }
   DBUG_VOID_RETURN;
@@ -140,18 +122,19 @@ void uninit_field_head(sensitive_field_head* s_fields)
     init_field()
     s_field         The object of sensitive field.
     key              The given key.
+    link              The link symbol
     value            The value of the key.
 
   RETURN VALUES
     0                  success;
     -1                 failed.
 */
-int init_field(sensitive_field** s_field, const char* key, const char* value)
+int init_field(sensitive_field** s_field, const char* key, const char* link, const char* value)
 {
   DBUG_ENTER("init_field");
-  if (!key || !value)
+  if (!key || !link || !value )
   {
-    DBUG_PRINT("error",("!!!error: The key or value is NULL!\n"));
+    DBUG_PRINT("error",("!!!error: The key or link symbol or value is NULL!\n"));
     DBUG_RETURN(-1);
   }
   *s_field = (sensitive_field*) my_malloc(sizeof(sensitive_field), MYF(MY_WME));
@@ -166,9 +149,17 @@ int init_field(sensitive_field** s_field, const char* key, const char* value)
     DBUG_PRINT("error",("!!!error: Duplicate the key: %s failed!\n",key));
     DBUG_RETURN(-1);
   }
+  if(((*s_field)->link = my_strdup(link,MYF(MY_FAE)))==NULL)
+  {
+    my_free((*s_field)->key);
+    my_free(*s_field);
+    DBUG_PRINT("error",("!!!error: Duplicate the key: %s failed!\n",key));
+    DBUG_RETURN(-1);
+  }
   if (((*s_field)->value = my_strdup(value,MYF(MY_FAE)))==NULL)
   {
     my_free((*s_field)->key);
+    my_free((*s_field)->link);
     my_free(*s_field);
     DBUG_PRINT("error",("!!!error: Duplicate the value: %s failed!\n",value));
     DBUG_RETURN(-1);
@@ -190,6 +181,7 @@ void uninit_field(sensitive_field* s_field)
   {
     my_free(s_field->key);
     my_free(s_field->value);
+    my_free(s_field->link);
     my_free(s_field);
   }
   DBUG_VOID_RETURN;
@@ -215,7 +207,7 @@ int add_field(sensitive_field_head* s_fields, sensitive_field* s_field)
     DBUG_PRINT("error",("!!!error: The sensitive field head  is NULL, or the value of field is NULL!"));
     DBUG_RETURN(-1);
   }
-  if(!is_field_exists(s_fields,s_field->key))
+  if(!is_field_exists(s_fields, s_field->key, s_field->link, s_field->value))
     TAILQ_INSERT_TAIL(s_fields,s_field,next);  
   DBUG_RETURN(0);
 }
@@ -240,7 +232,7 @@ int remove_field(sensitive_field_head* s_fields, sensitive_field* s_field)
     DBUG_PRINT("error",("!!!error: The sensitive field head is NULL or is empty!"));
     DBUG_RETURN(-1);
   }
-  if (s_field == NULL)
+  if (!s_field)
   {
     DBUG_PRINT("warning",("!!warning: The field is NULL!\n"));
     DBUG_RETURN(0);
@@ -261,10 +253,11 @@ void clear_fields(sensitive_field_head* s_fields)
 {
   sensitive_field* s_field;
   DBUG_ENTER("clear_fields");
-  if(!s_fields)
+  if(!s_fields || TAILQ_EMPTY(s_fields))
     DBUG_VOID_RETURN;
   for (s_field = TAILQ_FIRST(s_fields); s_field != NULL; s_field = TAILQ_FIRST(s_fields))
     remove_field(s_fields,s_field);
+  s_field = NULL;
   DBUG_VOID_RETURN;
 }
 
@@ -356,13 +349,12 @@ int init_table_head(sensitive_table_head** s_tables)
 void uninit_table_head(sensitive_table_head* s_tables)
 {
   DBUG_ENTER("uninit_table_head");
-  if(s_tables)
-  {
+  if(!TAILQ_EMPTY(s_tables))
     clear_tables(s_tables);
+  if(s_tables){
     my_free(s_tables);
   }
   DBUG_VOID_RETURN;
-
 }
 
 /*
@@ -371,15 +363,17 @@ void uninit_table_head(sensitive_table_head* s_tables)
   SYNOPSIS
     init_table()
     s_table         The object of sensitive table.
-    tb                 The table name
-    s_fields          The sensitive field lists.
+    tb                  The table name
+    f_s_fields     The sensitive filter field lists.
+    w_s_fields   The sensitive where field lists.
  
   RETURN VALUES
     0                  success;
     -1                 failed.
 */
-int init_table(sensitive_table** s_table, const char* tb, sensitive_field_head* s_fields)
+int init_table(sensitive_table** s_table, const char* tb, sensitive_field_head* f_s_fields, sensitive_field_head* w_s_fields)
 {
+  sensitive_field* ptr_field = NULL;
   DBUG_ENTER("init_field");
   if(!tb)
   {
@@ -398,18 +392,39 @@ int init_table(sensitive_table** s_table, const char* tb, sensitive_field_head* 
     DBUG_PRINT("error",("!!!error: Duplicate the table name: %s failed!\n",tb));
     DBUG_RETURN(-1);
   }
-  if (!s_fields)
+  (*s_table)->num_filter=0;
+  (*s_table)->num_where=0;
+  if(init_field_head(&((*s_table)->field_lists),FILTER_TYPE))
   {
-    if(init_field_head(&((*s_table)->field_lists)))
-    {
-      DBUG_PRINT("error",("!!!error: Malloc the sensitive field head failed!\n"));
-      my_free((*s_table)->tb_name);
-      my_free(*s_table);
-      DBUG_RETURN(-1);
-    }
-    TAILQ_INIT((*s_table)->field_lists);
-  }else
-    (*s_table)->field_lists = s_fields;
+    DBUG_PRINT("error",("!!!error: Malloc the sensitive field head failed!\n"));
+    my_free((*s_table)->tb_name);
+    my_free(*s_table);
+    DBUG_RETURN(-1);
+  }
+  TAILQ_INIT((*s_table)->field_lists);
+
+  if(init_field_head(&((*s_table)->where_lists),WHERE_TYPE))
+  {
+    DBUG_PRINT("error",("!!!error: Malloc the sensitive field head failed!\n"));
+    my_free((*s_table)->tb_name);
+    clear_fields((*s_table)->field_lists);
+    my_free(*s_table);
+    DBUG_RETURN(-1);
+  }
+  TAILQ_INIT((*s_table)->where_lists);
+
+  /* The field type is filter field*/
+  if (f_s_fields){  
+    (*s_table)->field_lists = f_s_fields;
+    TAILQ_FOREACH(ptr_field,f_s_fields,next)
+      ((*s_table)->num_filter)++;
+  }
+   /* The field type is where field*/    
+  if(w_s_fields){      
+    (*s_table)->where_lists = w_s_fields;
+    TAILQ_FOREACH(ptr_field,w_s_fields,next)
+      ((*s_table)->num_where)++;
+  }
   DBUG_RETURN(0);
 }
 
@@ -428,6 +443,10 @@ void uninit_table(sensitive_table* s_table)
     my_free(s_table->tb_name);
     if(s_table->field_lists)
       uninit_field_head(s_table->field_lists);
+    if(s_table->where_lists)
+      uninit_field_head(s_table->where_lists);
+    s_table->num_filter = 0;
+    s_table->num_where = 0;
     my_free(s_table);
   }
   DBUG_VOID_RETURN;
@@ -457,8 +476,14 @@ int add_table(sensitive_table_head* s_tables, sensitive_table* s_table)
   }
   if (!get_table(s_tables,&ptr_table,s_table->tb_name))
   {
-    TAILQ_FOREACH(ptr_field,s_table->field_lists,next)
+    TAILQ_FOREACH(ptr_field,s_table->field_lists,next){
       add_field(ptr_table->field_lists,ptr_field);
+      ptr_table->num_filter++;
+    }
+    TAILQ_FOREACH(ptr_field,s_table->where_lists,next){
+      add_field(ptr_table->where_lists,ptr_field);
+      ptr_table->num_where++;
+    }
   }
   else
     TAILQ_INSERT_TAIL(s_tables,s_table,next);
@@ -505,11 +530,12 @@ int remove_table(sensitive_table_head* s_tables, sensitive_table* s_table)
 void clear_tables(sensitive_table_head* s_tables)
 {
   sensitive_table* s_table;
-  DBUG_ENTER("clear_fields");
-  if(!s_tables)
+  DBUG_ENTER("clear_tables");
+  if(!s_tables || TAILQ_EMPTY(s_tables))
     DBUG_VOID_RETURN;
   for (s_table = TAILQ_FIRST(s_tables); s_table != NULL; s_table = TAILQ_FIRST(s_tables))
     remove_table(s_tables,s_table);
+  s_table = NULL;
   DBUG_VOID_RETURN;
 }
 
@@ -601,13 +627,12 @@ int init_db_head(sensitive_db_head** s_dbs)
 void uninit_db_head(sensitive_db_head* s_dbs)
 {
   DBUG_ENTER("uninit_db_head");
-  if(s_dbs)
-  {
+  if(!TAILQ_EMPTY(s_dbs))
     clear_dbs(s_dbs);
+  if(s_dbs){
     my_free(s_dbs);
   }
   DBUG_VOID_RETURN;
-
 }
 
 /*
@@ -730,7 +755,7 @@ int remove_db(sensitive_db_head* s_dbs, sensitive_db* s_db)
     DBUG_PRINT("error",("!!!error: The sensitive table head is NULL or is empty!\n"));
     DBUG_RETURN(-1);
   }
-  if (s_db == NULL)
+  if (!s_db)
   {
     DBUG_PRINT("warning",("!!warning: The s_db is NULL!\n"));
     DBUG_RETURN(0);
@@ -751,10 +776,11 @@ void clear_dbs(sensitive_db_head* s_dbs)
 {
   sensitive_db* s_db;
   DBUG_ENTER("clear_dbs");
-  if(!s_dbs)
+  if(!s_dbs || TAILQ_EMPTY(s_dbs))
     DBUG_VOID_RETURN;
   for (s_db = TAILQ_FIRST(s_dbs); s_db != NULL; s_db = TAILQ_FIRST(s_dbs))
     remove_db(s_dbs,s_db);
+  s_db = NULL;
   DBUG_VOID_RETURN;
 }
 
